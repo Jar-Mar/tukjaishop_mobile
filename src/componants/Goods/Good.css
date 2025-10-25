@@ -1,0 +1,12 @@
+
+
+img {
+  width: 400px;
+  height: 600px;
+  object-fit: cover;
+}
+.custom-img {
+  width: 100%;       /* or specific width */
+  height: 100%;     /* or your desired height */
+  object-fit: cover; /* or contain, fill, none, scale-down */
+}

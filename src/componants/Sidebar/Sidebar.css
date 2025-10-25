@@ -1,0 +1,36 @@
+/* Sidebar.css */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 250px;
+  background-color: #343a40;
+  overflow-x: hidden;
+  transition: all 0.3s ease;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 1050; /* Make sure it's on top */
+}
+
+/* When collapsed, width reduces to 0 but remains on top */
+.sidebar.collapsed {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  z-index: 1050; /* Keep on top when collapsed */
+}
+
+/* Optional: override content container z-index if needed */
+.contentContainer {
+  margin-left: 250px;
+  padding: 20px;
+  flex: 1;
+  transition: margin-left 0.3s ease;
+  z-index: 1; /* Default z-index for content */
+}
+
+.contentContainer.collapsed {
+  margin-left: 0;
+}
