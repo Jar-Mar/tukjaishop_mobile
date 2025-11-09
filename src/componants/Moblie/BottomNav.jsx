@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { House, PlusCircle, Gear } from "react-bootstrap-icons";
+import { House, Basket, Gear, BagPlusFill,BoxSeam,Database} from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 
 const BottomNav = () => {
@@ -9,8 +9,10 @@ const BottomNav = () => {
 
   const tabs = [
     { name: "Home", icon: <House size={22} />, path: "/Home" },
-    { name: "ขาย", icon: <PlusCircle size={22} />, path: "/" },
-    { name: "Settings", icon: <Gear size={22} />, path: "/Setting" },
+    { name: "ตะกร้าสินค้า", icon: <Basket size={22} />, path: "/" },
+    { name: "เพิ่มสินค้า", icon: <BagPlusFill size={22} />, path: "/AddGoods" },
+    { name: "เช็คสินค้า", icon: <BoxSeam size={22} />, path: "/CheckGoods" },
+    { name: "Stock", icon: <Database size={22} />, path: "/CheckStock" },
   ];
 
   return (

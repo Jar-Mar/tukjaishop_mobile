@@ -4,11 +4,11 @@ import fs from 'fs'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
-    https: {
-      key: fs.readFileSync('./localhost+2-key.pem'),
-      cert: fs.readFileSync('./localhost+2.pem'),
-    },
-    host: true, // Allow LAN access
-  },
+  // server: {
+  //   https: {
+  //     key: fs.readFileSync('./localhost+2-key.pem'),
+  //     cert: fs.readFileSync('./localhost+2.pem'),
+  //   },
+  //   host: true, // Allow LAN access
+  // },
 })
