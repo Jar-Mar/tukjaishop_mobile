@@ -6,6 +6,7 @@ import CheckStockPage from "./componants/Moblie/CheckStockPage";
 import AllStockPage from "./componants/Moblie/AllStockPage";
 import SalesReportPage from "./componants/Moblie/SalesReportPage";
 import BottomNav from "./componants/Moblie/BottomNav";
+import RestockPage from "./componants/Moblie/RestockPage";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/CheckGoods" element={<CheckStockPage />} />
         <Route path="/CheckStock" element={<AllStockPage />} />
         <Route path="/Home" element={<SalesReportPage />} />
+        <Route path="/restock" element={<RestockPage />} />
       </Routes>
       <BottomNav />
     </div>

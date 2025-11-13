@@ -2,8 +2,14 @@ from pydantic import BaseModel
 from typing import Optional
 
 class Goods(BaseModel):
-    barcode: str
+    barcode: Optional[str] = None
     name: str
+    type: Optional[str] = None
+    cost: float
     price: float
-    cost: Optional[float] = 0
-    supplier: Optional[str] = ""
+    stock: int = 0
+    supplier: Optional[str] = None
+    dateReceived: Optional[str] = None
+    imageBase64: Optional[str] = None
+    profitPercent: Optional[float] = None
+    manualPrice: Optional[float] = None

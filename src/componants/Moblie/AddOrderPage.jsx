@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button, Form, Card, Table, Alert } from "react-bootstrap";
 import BarcodeScannerComponent from "react-qr-barcode-scanner";
 
-const API_BASE = "http://127.0.0.1:8000"; // ✅ backend URL
+const API_BASE = "https://192.168.1.118:8000"; // ✅ Backend URL
 
 const AddOrderPage = () => {
   const [orders, setOrders] = useState([]);
@@ -10,35 +10,28 @@ const AddOrderPage = () => {
   const [cash, setCash] = useState("");
   const [paymentType, setPaymentType] = useState("cash");
   const [scanning, setScanning] = useState(false);
-  const [editIndex, setEditIndex] = useState(null);
   const idInputRef = useRef(null);
 
-  // ✅ Member state
+  // ✅ Member info
   const [memberPhone, setMemberPhone] = useState("");
   const [memberName, setMemberName] = useState("");
   const [memberStatus, setMemberStatus] = useState(""); // found | new
   const [points, setPoints] = useState(0);
   const [redeem, setRedeem] = useState(0);
 
-  // Local fallback
-  const localProductDB = {
-    123456: { name: "Camera Lens", price: 1500 },
-    789012: { name: "Lighting Kit", price: 3200 },
-    345678: { name: "Encoder Cable", price: 450 },
-  };
-
+  // Auto-focus
   useEffect(() => {
     idInputRef.current?.focus();
-  }, [editIndex]);
+  }, []);
 
-  // 🔹 Fetch member
+  // 🧩 Fetch Member
   const apiGetMember = async (phone) => {
     const res = await fetch(`${API_BASE}/api/members/${phone}`);
     if (!res.ok) return null;
     return await res.json();
   };
 
-  // 🔹 Create new member
+  // 🧩 Create new Member
   const apiCreateMember = async (payload) => {
     const res = await fetch(`${API_BASE}/api/members`, {
       method: "POST",
@@ -48,7 +41,7 @@ const AddOrderPage = () => {
     return await res.json();
   };
 
-  // 🔹 Save order
+  // 🧩 Save Order
   const apiCreateOrder = async (payload) => {
     const res = await fetch(`${API_BASE}/api/orders`, {
       method: "POST",
@@ -58,14 +51,29 @@ const AddOrderPage = () => {
     return await res.json();
   };
 
-  // 🔹 Get product by barcode
-  const apiGetProductByBarcode = async (code) => {
-    const res = await fetch(`${API_BASE}/api/goods/barcode/${code}`);
-    if (!res.ok) return null;
-    return await res.json();
+  // 🧩 Update Points
+  const apiUpdatePoints = async (phone, newPoints) => {
+    await fetch(`${API_BASE}/api/members/${phone}/points`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ points: newPoints }),
+    });
   };
 
-  // 🧩 Member check
+  // 🧩 Get Product by Barcode
+  const apiGetProductByBarcode = async (code) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/goods/barcode/${code}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error("❌ Fetch product error:", err);
+      return null;
+    }
+  };
+
+  // ✅ Member lookup
   const handleMemberPhoneBlur = async () => {
     const phone = memberPhone.trim();
     if (!phone) return;
@@ -81,10 +89,15 @@ const AddOrderPage = () => {
     }
   };
 
-  // ✅ Add member if not found
+  // ✅ Register new member if needed
   const registerMemberIfNeeded = async () => {
     const phone = memberPhone.trim();
-    if (!phone) return null;
+
+    // ⚡ ไม่มีการกรอกเบอร์สมาชิก
+    if (!phone) {
+      return { name: "ไม่มีสมาชิก", phone: "-" };
+    }
+
     if (memberStatus === "new") {
       if (!memberName) throw new Error("กรุณากรอกชื่อสมาชิกใหม่");
       await apiCreateMember({ name: memberName, phone });
@@ -92,23 +105,25 @@ const AddOrderPage = () => {
     return { name: memberName, phone };
   };
 
-  // ✅ Add product
+  // ✅ Product Scan
   const handleScan = async (err, result) => {
     if (result) {
       const code = result.text.trim();
       if (!code) return;
       new Audio("/beep.mp3").play().catch(() => {});
 
-      const remote = await apiGetProductByBarcode(code);
-      const product = remote || localProductDB[code];
-      if (product) {
+      const product = await apiGetProductByBarcode(code);
+      if (product && product.name && product.price) {
         setForm({ id: code, name: product.name, qty: 1, price: product.price });
         setTimeout(addOrUpdateOrder, 300);
+      } else {
+        alert("❌ ไม่พบสินค้าในระบบ");
       }
       setScanning(false);
     }
   };
 
+  // ✅ Add / Update Order
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
@@ -126,52 +141,99 @@ const AddOrderPage = () => {
     setForm({ id: "", name: "", qty: "", price: "" });
   };
 
+  // ✅ Remove Item
+  const removeItem = (index) => {
+    const newOrders = [...orders];
+    newOrders.splice(index, 1);
+    setOrders(newOrders);
+  };
+
+  // ✅ Totals
   const grandTotal = orders.reduce((sum, o) => sum + o.total, 0);
   const discount = Math.min(redeem, points, grandTotal);
   const netTotal = grandTotal - discount;
   const change = paymentType === "cash" ? Number(cash || 0) - netTotal : 0;
 
-  // ✅ Save to backend
+  useEffect(() => {
+    if (redeem > points) setRedeem(points);
+  }, [redeem, points]);
+
+  // ✅ Save & print
   const handleSave = async () => {
     if (orders.length === 0) return alert("ยังไม่มีสินค้า");
     const member = await registerMemberIfNeeded();
+
+    const earnedPoints =
+      member.phone === "-" ? 0 : Math.floor(netTotal / 100); // ✅ ถ้าไม่มีสมาชิก → ไม่ได้แต้ม
+    const remainingPoints =
+      member.phone === "-" ? 0 : points - redeem + earnedPoints;
 
     const payload = {
       member,
       items: orders,
       paymentType,
       cash: Number(cash || 0),
-      total: netTotal,
+      total: grandTotal,
+      total_net: netTotal,
       change,
+      redeem,
+      earnedPoints,
+      points_before: points,
       date: new Date().toISOString(),
     };
 
-    await apiCreateOrder(payload);
-    alert("✅ บันทึกสำเร็จ!");
+    try {
+      const res = await apiCreateOrder(payload);
+      if (res?.message) {
+        if (member.phone === "-") {
+          alert(`✅ บันทึกสำเร็จ (ขายแบบไม่มีสมาชิก)`);
+        } else {
+          alert(
+            `✅ บันทึกสำเร็จ!\nได้แต้มเพิ่ม ${earnedPoints} แต้ม\nแต้มคงเหลือปัจจุบัน: ${remainingPoints}`
+          );
+        }
+      } else {
+        alert("❌ เกิดข้อผิดพลาดในการบันทึก");
+      }
+    } catch (e) {
+      alert("❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    }
+
+    // ✅ ถ้ามีสมาชิกเท่านั้นถึงจะอัปเดตแต้ม
+    if (member.phone !== "-") {
+      await apiUpdatePoints(member.phone, remainingPoints);
+    }
+
+    // Reset
     setOrders([]);
     setCash("");
     setRedeem(0);
+    setMemberPhone("");
+    setMemberName("");
+    setPoints(remainingPoints);
+    setMemberStatus("");
   };
 
   return (
     <div className="p-3">
       <h4 className="text-center mb-3">🧾 ถูกใจการค้า POS</h4>
 
-      {/* สมาชิก */}
+      {/* ===== สมาชิก ===== */}
       <Card className="mb-3">
         <Card.Body>
           <Form.Group>
-            <Form.Label>📞 เบอร์โทรสมาชิก</Form.Label>
+            <Form.Label>📞 เบอร์โทรสมาชิก (ว่างได้ถ้าไม่มีสมาชิก)</Form.Label>
             <Form.Control
               value={memberPhone}
               onChange={(e) => setMemberPhone(e.target.value)}
               onBlur={handleMemberPhoneBlur}
+              placeholder="กรอกเบอร์โทร หรือเว้นว่าง"
             />
           </Form.Group>
 
           {memberStatus === "found" && (
             <Alert variant="success" className="mt-2">
-              ✅ เจอสมาชิก: {memberName} | แต้ม {points}
+              ✅ เจอสมาชิก: {memberName} | แต้มสะสม {points}
             </Alert>
           )}
 
@@ -191,7 +253,7 @@ const AddOrderPage = () => {
         </Card.Body>
       </Card>
 
-      {/* สินค้า */}
+      {/* ===== สินค้า ===== */}
       <Card className="mb-3">
         <Card.Body>
           <div className="d-flex gap-2">
@@ -247,7 +309,7 @@ const AddOrderPage = () => {
         </Card.Body>
       </Card>
 
-      {/* ตาราง */}
+      {/* ===== ตารางสินค้า ===== */}
       <Card className="mb-3">
         <Card.Body>
           <Table size="sm" bordered>
@@ -257,6 +319,7 @@ const AddOrderPage = () => {
                 <th>จำนวน</th>
                 <th>ราคา</th>
                 <th>รวม</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -266,17 +329,26 @@ const AddOrderPage = () => {
                   <td>{o.qty}</td>
                   <td>{o.price}</td>
                   <td>{o.total}</td>
+                  <td>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => removeItem(i)}
+                    >
+                      ลบ
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </Table>
           <div className="text-end fw-bold">
-            รวม: {grandTotal.toLocaleString()} ฿
+            รวมทั้งหมด: {grandTotal.toLocaleString()} ฿
           </div>
         </Card.Body>
       </Card>
 
-      {/* ส่วนลด */}
+      {/* ===== ส่วนลดด้วยแต้ม ===== */}
       {memberStatus === "found" && (
         <Card className="mb-3">
           <Card.Body>
@@ -292,10 +364,10 @@ const AddOrderPage = () => {
         </Card>
       )}
 
-      {/* ชำระเงิน */}
+      {/* ===== ชำระเงิน ===== */}
       <Card className="mb-3">
         <Card.Body>
-          <div className="fw-bold mb-2">ยอดสุทธิ: {netTotal} ฿</div>
+          <div className="fw-bold mb-2">ยอดสุทธิ: {netTotal.toLocaleString()} ฿</div>
           <Form.Select
             value={paymentType}
             onChange={(e) => setPaymentType(e.target.value)}
@@ -312,12 +384,17 @@ const AddOrderPage = () => {
               onChange={(e) => setCash(e.target.value)}
             />
           )}
+          {paymentType === "cash" && (
+            <div className="text-end mt-2">
+              เงินทอน: <b>{change >= 0 ? change.toLocaleString() : 0} ฿</b>
+            </div>
+          )}
         </Card.Body>
       </Card>
 
       <div className="text-center">
         <Button variant="primary" onClick={handleSave}>
-          📝 บันทึก
+          📝 บันทึกและพิมพ์ใบเสร็จ
         </Button>
       </div>
     </div>

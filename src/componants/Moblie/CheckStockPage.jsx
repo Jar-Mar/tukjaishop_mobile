@@ -1,72 +1,56 @@
 import React, { useState } from "react";
-import { Card, Button, Form, Table, Alert } from "react-bootstrap";
+import { Card, Button, Form, Table, Alert, Spinner } from "react-bootstrap";
 import BarcodeScannerComponent from "react-qr-barcode-scanner";
+import axios from "axios";
+
+const API_BASE = "https://192.168.1.118:8000/api/goods"; // ✅ Backend URL
 
 const CheckStockPage = () => {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState("");
   const [foundProduct, setFoundProduct] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // ✅ Simulated stock database (can later connect to backend)
-  const productStock = [
-    {
-      id: "123456",
-      name: "Camera Lens",
-      type: "กล้อง",
-      cost: 1500,
-      price: 2300,
-      quantity: 12,
-      supplier: "บริษัท ABC จำกัด",
-    },
-    {
-      id: "789012",
-      name: "Lighting Kit",
-      type: "ไฟส่องวัตถุ",
-      cost: 3200,
-      price: 4500,
-      quantity: 8,
-      supplier: "บริษัท Vision Light Co.",
-    },
-    {
-      id: "345678",
-      name: "Encoder Cable",
-      type: "สายสัญญาณ",
-      cost: 450,
-      price: 700,
-      quantity: 24,
-      supplier: "บริษัท Motion Connect",
-    },
-  ];
-
-  const handleScan = (err, result) => {
+  // ✅ Handle QR / Barcode scan
+  const handleScan = async (err, result) => {
     if (result) {
       const code = result.text.trim();
       setScanResult(code);
       setScanning(false);
-
-      const product = productStock.find((p) => p.id === code);
-      if (product) {
-        setFoundProduct(product);
-        new Audio("/beep.mp3").play().catch(() => {});
-      } else {
-        setFoundProduct(null);
-      }
+      await searchProduct(code);
     }
   };
 
-  const handleManualSearch = () => {
+  // ✅ Manual search by input
+  const handleManualSearch = async () => {
     const code = scanResult.trim();
     if (!code) {
       alert("⚠️ กรุณาใส่รหัสสินค้าก่อนค้นหา");
       return;
     }
-    const product = productStock.find((p) => p.id === code);
-    if (product) {
-      setFoundProduct(product);
-      new Audio("/beep.mp3").play().catch(() => {});
-    } else {
-      alert("❌ ไม่พบสินค้านี้ในระบบ");
+    await searchProduct(code);
+  };
+
+  // ✅ Search product from backend
+  const searchProduct = async (barcode) => {
+    try {
+      setLoading(true);
+      setErrorMessage("");
       setFoundProduct(null);
+
+      const res = await axios.get(`${API_BASE}/barcode/${barcode}`);
+      if (res.data) {
+        setFoundProduct(res.data);
+        new Audio("/beep.mp3").play().catch(() => {});
+      } else {
+        setErrorMessage("❌ ไม่พบสินค้านี้ในระบบ");
+      }
+    } catch (err) {
+      console.error("ไม่พบสินค้า:", err);
+      setErrorMessage("❌ ไม่พบสินค้านี้ในระบบ");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -115,8 +99,15 @@ const CheckStockPage = () => {
             variant="primary"
             className="w-100"
             onClick={handleManualSearch}
+            disabled={loading}
           >
-            🔎 ตรวจสอบสินค้า
+            {loading ? (
+              <>
+                <Spinner animation="border" size="sm" /> กำลังตรวจสอบ...
+              </>
+            ) : (
+              "🔎 ตรวจสอบสินค้า"
+            )}
           </Button>
         </Card.Body>
       </Card>
@@ -126,9 +117,9 @@ const CheckStockPage = () => {
         <Alert variant="success" className="text-center fw-bold">
           ✅ พบสินค้าในระบบ
         </Alert>
-      ) : scanResult && !scanning ? (
+      ) : errorMessage && !loading ? (
         <Alert variant="danger" className="text-center">
-          ❌ ไม่พบสินค้าในระบบ
+          {errorMessage}
         </Alert>
       ) : null}
 
@@ -144,19 +135,23 @@ const CheckStockPage = () => {
                   <th>ต้นทุน (บาท)</th>
                   <th>ราคาขาย (บาท)</th>
                   <th>คงเหลือ (ชิ้น)</th>
-                  <th>คู่ค้า</th> {/* ✅ New column */}
+                  <th>คู่ค้า</th>
+                  <th>วันที่รับ</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>{foundProduct.name}</td>
                   <td>{foundProduct.type}</td>
-                  <td>{foundProduct.cost.toLocaleString()}</td>
-                  <td>{foundProduct.price.toLocaleString()}</td>
-                  <td className="fw-bold text-success">
-                    {foundProduct.quantity.toLocaleString()}
+                  <td>{foundProduct.cost?.toLocaleString()}</td>
+                  <td className="fw-bold text-primary">
+                    {foundProduct.price?.toLocaleString()}
                   </td>
-                  <td className="text-secondary">{foundProduct.supplier}</td>
+                  <td className="fw-bold text-success">
+                    {foundProduct.stock?.toLocaleString()}
+                  </td>
+                  <td>{foundProduct.supplier || "-"}</td>
+                  <td>{foundProduct.dateReceived || "-"}</td>
                 </tr>
               </tbody>
             </Table>

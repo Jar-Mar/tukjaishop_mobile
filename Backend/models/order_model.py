@@ -9,7 +9,7 @@ class OrderItem(BaseModel):
     total: float
 
 class Order(BaseModel):
-    member: Optional[dict]
+    member: Optional[dict] = None
     items: List[OrderItem]
     paymentType: str
     cash: float
